@@ -1,0 +1,220 @@
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="./level-memory-sphynx.html">
+<link rel="import" href="./card-memory-sphynx.html">
+<link rel="import" href="./score-memory-sphynx.html">
+
+
+<dom-module id="memory-sphynx">
+  <template>
+    <style>
+      :host {
+        display: block;
+        height: 100%;
+        width: 100%;
+        background: url("assets/img/pink-sphynx-background.jpg") center / cover;
+      }
+
+      .memory-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+      }
+
+      .memory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        grid-auto-rows: 150px;
+        gap: 1rem;
+      }
+    </style>
+    <level-memory-sphynx on-level-change="__selectLevel"></level-memory-sphynx>
+    <div class="memory-header">
+      <score-memory-sphynx turn="[[turn]]">
+        <span slot="player1">[[score.playerOne]]</span>
+        <span slot="player2">[[score.playerTwo]]</span>
+      </score-memory-sphynx>
+    </div>
+
+    <div class="memory-grid">
+      <template is="dom-repeat" items="[[cards]]" as="card">
+        <card-memory-sphynx picture="[[card.picture]]" hide-element="[[card.setAttrHideElement]]"
+          hide-picture="[[card.setAttrHidePicture]]" on-click="__selectCard"></card-memory-sphynx>`
+      </template>
+
+
+    </div>
+  </template>
+
+  <script>
+    class MemorySphynx extends Polymer.Element {
+      static get is() { return 'memory-sphynx'; }
+      static get properties() {
+        return {
+          cards: {
+            type: Array,
+            value: [],
+          },
+          turn: {
+            type: Boolean,
+          },
+          gameDifficulty: {
+            type: Number,
+          },
+          opened: {
+            type: Array,
+          },
+          selectedCards:{
+            type:Array
+          },
+          clicked:{
+            type:Boolean
+          },
+          score:{
+            type:Object
+          },
+          numberOfPairs:{
+            type:Number
+          },
+          matchedPairs:{
+            type:Number
+          },
+          winner:{
+            type:String
+          }
+        };
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.__onInit();
+        this.__createCards(this.get('numberOfPairs'));
+      }
+
+      __onInit() {
+        this.set('selectedCards', []);
+        this.set('clicked', true);
+        this.set('score', { playerOne: 0, playerTwo: 0 })
+        this.set('turn', true);
+        this.set('numberOfPairs', 5);
+        this.set('matchedPairs', 0);
+        this.set('winner', '');
+      }
+
+      __createCards(numberOfCards) {
+        let imgArray = [];
+        for (let i = 1; i <= numberOfCards; i++) {
+          imgArray.push({
+            picture: `/assets/img/Picture${i}.png`,
+            value: i,
+            setAttrHidePicture: true,
+            setAttrHideElement: false,
+          });
+          imgArray.push({
+            picture: `/assets/img/Picture${i}.png`,
+            value: i,
+            setAttrHidePicture: true,
+            setAttrHideElement: false,
+          });
+        }
+        this.set('cards', imgArray.sort((a, b) => (Math.random() - 0.5)));
+      }
+
+      __changeTurn() {
+        this.set('turn', !this.get('turn'));
+      }
+
+      __changeScore() {
+        if (this.get('turn')) {
+          this.set('score.playerOne', this.get('score.playerOne') + 1);
+        } else {
+          this.set('score.playerTwo', this.get('score.playerTwo') + 1);
+        }
+      }
+
+      __countPairs() {
+        this.set('matchedPairs', this.get('matchedPairs') + 1);
+        if (this.get('matchedPairs') === this.get('numberOfPairs')) {
+          if (this.get('score.playerOne') > this.get('score.playerTwo')) {
+            alert('CONGRATS!🎉 Player 1, you won');
+          } else {
+            alert('CONGRATS!🎉 Player 2, you won');
+          }
+        }
+      }
+
+      __clearCards() {
+        this.unlinkPaths('selectedCards');
+        this.set('selectedCards', []);
+      }
+
+      __hidePairElement() {
+        this.set('selectedCards.0.setAttrHideElement', true);
+        this.set('selectedCards.1.setAttrHideElement', true);
+        // this.set('cards.'+this.get('selectedCards.0.index')+'.setAttrHideElement',true);
+        // this.set('cards.'+this.get('selectedCards.1.index')+'.setAttrHideElement',true);
+      }
+      
+      __hidePairPicture() {
+        this.set('selectedCards.0.setAttrHidePicture', true);
+        this.set('selectedCards.1.setAttrHidePicture', true);
+        // this.set('cards.'+this.get('selectedCards.0.index')+'.setAttrHidePicture',true);
+        // this.set('cards.'+this.get('selectedCards.1.index')+'.setAttrHidePicture',true);
+      }
+
+      __showPicture(e) {
+        e.model.set('card.setAttrHidePicture',false)
+      }
+
+      __selectCard(e) {
+        if (this.get('selectedCards').length < 2) {
+          this.push('selectedCards',e.model.get('card'));
+          this.__showPicture(e);
+          if(this.get('selectedCards').length === 1){
+            this.linkPaths('selectedCards.0', 'cards.'+e.model.index);
+          }
+          if (this.get('selectedCards').length == 2) {
+            this.linkPaths('selectedCards.1', 'cards.'+e.model.index);
+            let isPair = this.__validatePair(this.get('selectedCards.0.value'), this.get('selectedCards.1.value'));
+            if (isPair) {
+              setTimeout(() => {
+                const audio = new Audio(
+                  'http://codeskulptor-demos.commondatastorage.googleapis.com/descent/gotitem.mp3'
+                );
+                audio.play();
+                this.__hidePairElement();
+                this.__clearCards();
+                this.__changeScore();
+                this.__changeTurn();
+                this.__countPairs();
+                console.log('timeout 1')
+              }, 1000)
+            } else {
+              setTimeout(() => {
+                this.__hidePairPicture();
+                this.__clearCards();
+                this.__changeTurn();
+                const audio1 = new Audio(
+                  'http://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3'
+                  );
+                  audio1.play();
+                  console.log('timeout 2')
+              }, 1000);
+            }
+          }
+        }
+      }
+
+      __validatePair(card1, card2) {
+        return card1 === card2;
+      }
+
+      __selectLevel(e) {
+        this.__onInit();
+        this.set('numberOfPairs',e.detail);
+        this.__createCards(parseInt(e.detail));
+      }
+    }
+
+    window.customElements.define(MemorySphynx.is, MemorySphynx);
+  </script>
+</dom-module>
